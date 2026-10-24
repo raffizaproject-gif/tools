@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pembuat Ikon Aplikasi</title>
+<style>
+:root{--bg:#2a2a2a;--panel:#161616;--card:#222221;--text:#f4f4f2;--mute:#9a9a96;--lime:#d9ff70;--ink:#14150f;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,'Segoe UI',sans-serif;padding:max(20px,env(safe-area-inset-top)) 16px 40px}
+main{max-width:760px;margin:0 auto;background:var(--panel);border-radius:26px;padding:26px}
+h1{margin:0 0 6px;font-size:24px;font-weight:600}
+p{color:var(--mute);font-size:14px;line-height:1.55;margin:6px 0}
+button,.pick{display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:0 22px;border:0;border-radius:999px;background:var(--lime);color:var(--ink);font:inherit;font-weight:700;font-size:14px;cursor:pointer;transition:transform .2s,filter .2s}
+button:hover,.pick:hover{filter:brightness(.94)}
+button:active,.pick:active{transform:scale(.96)}
+.pick input{display:none}
+.ghost{background:#2b2b2a;color:var(--text)}
+#out{margin-top:22px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(150px,100%),1fr));gap:12px;margin:16px 0}
+.card{background:var(--card);border-radius:20px;padding:14px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+.card img{width:96px;height:96px;object-fit:contain;border-radius:16px;background:#fff}
+.card b{font-size:12.5px;word-break:break-all}
+.card small{color:var(--mute);font-size:11.5px}
+.card a{font-size:12.5px;color:var(--lime);padding:8px}
+ol{color:var(--mute);font-size:14px;line-height:1.7;padding-left:20px}
+ol b{color:var(--text)}
+.err{color:#ff9b9b;font-size:13px;margin-top:10px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Pembuat ikon aplikasi</h1>
+  <p>Pilih file logo kamu (PNG atau JPG). Semua ikon dibuat di browser ini, tidak ada yang diunggah ke mana pun. Area putih di sekitar logo dipotong otomatis, lalu logo ditaruh rapi di tengah kotak persegi.</p>
+  <p style="margin-top:16px"><label class="pick"><input type="file" id="f" accept="image/*">Pilih logo</label></p>
+  <div class="err" id="err"></div>
+
+  <div id="out" hidden>
+    <div class="grid" id="cards"></div>
+    <button id="all" type="button">Unduh semua (5 file)</button>
+    <p style="margin-top:18px"><b style="color:var(--text)">Langkah selanjutnya</b></p>
+    <ol>
+      <li>Taruh kelima file hasil unduhan di <b>folder yang sama dengan index.html</b>. Jangan ubah nama filenya.</li>
+      <li>Upload semuanya ke hosting kamu (harus <b>https</b>).</li>
+      <li><b>Android / Chrome:</b> buka web, lalu menu ⋮ → Instal aplikasi (atau Tambahkan ke layar utama).</li>
+      <li><b>iPhone / iPad:</b> buka di Safari, tekan tombol Bagikan → Tambah ke Layar Utama.</li>
+    </ol>
+  </div>
+</main>
+
+<script>
+const SPECS = [
+  { name: 'icon-192.png',          s: 192, fill: .8,  note: 'Android / Chrome' },
+  { name: 'icon-512.png',          s: 512, fill: .8,  note: 'Android / Chrome' },
+  { name: 'icon-maskable-512.png', s: 512, fill: .6,  note: 'Android (bentuk adaptif)' },
+  { name: 'apple-touch-icon.png',  s: 180, fill: .8,  note: 'iPhone / iPad' },
+  { name: 'favicon-32.png',        s: 32,  fill: .92, note: 'Tab browser' }
+];
+const $ = s => document.querySelector(s);
+let links = [];
+
+// Cari batas logo (abaikan latar putih / transparan di sekelilingnya).
+function bounds(img) {
+  const c = document.createElement('canvas'), w = c.width = img.naturalWidth, h = c.height = img.naturalHeight;
+  const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(img, 0, 0);
+  const d = x.getImageData(0, 0, w, h).data;
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let y = 0; y < h; y++) for (let i = 0; i < w; i++) {
+    const p = (y * w + i) * 4, bg = d[p + 3] < 12 || (d[p] > 240 && d[p + 1] > 240 && d[p + 2] > 240);
+    if (!bg) { if (i < x0) x0 = i; if (i > x1) x1 = i; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  }
+  return x1 < 0 ? { x: 0, y: 0, w, h } : { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+}
+
+function draw(img, b, spec) {
+  const c = document.createElement('canvas'); c.width = c.height = spec.s;
+  const g = c.getContext('2d');
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, spec.s, spec.s);
+  g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+  const k = spec.s * spec.fill / Math.max(b.w, b.h), dw = b.w * k, dh = b.h * k;
+  g.drawImage(img, b.x, b.y, b.w, b.h, (spec.s - dw) / 2, (spec.s - dh) / 2, dw, dh);
+  return c;
+}
+
+$('#f').onchange = e => {
+  const file = e.target.files[0]; if (!file) return;
+  $('#err').textContent = '';
+  const img = new Image(), url = URL.createObjectURL(file);
+  img.onload = () => {
+    const b = bounds(img);
+    $('#cards').innerHTML = ''; links = [];
+    SPECS.forEach(spec => {
+      const c = draw(img, b, spec), href = c.toDataURL('image/png');
+      const card = document.createElement('div'); card.className = 'card';
+      card.innerHTML = `<img alt="" src="${href}"><b>${spec.name}</b><small>${spec.s}×${spec.s} · ${spec.note}</small>`;
+      const a = document.createElement('a'); a.href = href; a.download = spec.name; a.textContent = 'Unduh';
+      card.appendChild(a); $('#cards').appendChild(card); links.push(a);
+    });
+    URL.revokeObjectURL(url);
+    $('#out').hidden = false;
+  };
+  img.onerror = () => { $('#err').textContent = 'File ini tidak bisa dibaca sebagai gambar.'; URL.revokeObjectURL(url); };
+  img.src = url;
+};
+
+$('#all').onclick = () => links.forEach((a, i) => setTimeout(() => a.click(), i * 400));
+</script>
+</body>
+</html>
